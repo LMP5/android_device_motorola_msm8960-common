@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2013 The CyanogenMod Project
+# Copyright (C) 2015 The CyanogenMod Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,49 +21,94 @@
 # definition file).
 #
 
+# inherit from the proprietary version
+-include vendor/motorola/msm8960-common/BoardConfigVendor.mk
+
+BOARD_VENDOR := motorola-qcom
+
+# Platform
+TARGET_BOARD_PLATFORM_GPU := qcom-adreno200
+TARGET_BOARD_PLATFORM := msm8960
+TARGET_BOOTLOADER_BOARD_NAME := MSM8960
+TARGET_CPU_VARIANT := krait
+
 -include device/motorola/qcom-common/BoardConfigCommon.mk
 
 LOCAL_PATH := device/motorola/msm8960-common
 
 TARGET_SPECIFIC_HEADER_PATH += $(LOCAL_PATH)/include
 
-BOARD_VENDOR := motorola-msm8960
-
-# Platform
-TARGET_BOARD_PLATFORM_GPU := qcom-adreno200
-
 # Inline kernel building
-TARGET_KERNEL_SOURCE := kernel/motorola/msm8960-common
+BOARD_KERNEL_SEPARATED_DT := true
+BOARD_CUSTOM_BOOTIMG_MK := $(LOCAL_PATH)/mkbootimg.mk
+TARGET_KERNEL_SOURCE := kernel/motorola/msm8960dt-common
 TARGET_KERNEL_CONFIG := msm8960_mmi_defconfig
-TARGET_KERNEL_SELINUX_CONFIG := msm8960_mmi_selinux_defconfig
-BOARD_KERNEL_CMDLINE := console=/dev/null androidboot.hardware=qcom user_debug=31 loglevel=1 zcache
+BOARD_KERNEL_CMDLINE := console=ttyHSL0,115200,n8 androidboot.hardware=qcom user_debug=31 msm_rtb.filter=0x3F ehci-hcd.park=3 maxcpus=2 vmalloc=400M androidboot.write_protect=0 zcache zcache=lz4 androidboot.bootdevice=msm_sdcc.1
 BOARD_KERNEL_BASE := 0x80200000
 BOARD_KERNEL_PAGESIZE := 2048
-BOARD_MKBOOTIMG_ARGS := --ramdisk_offset 0x01600000
-#backwards compat for 4.1 (making recoveries)
-#BOARD_FORCE_RAMDISK_ADDRESS := 0x81600000
+BOARD_MKBOOTIMG_ARGS := --ramdisk_offset 0x02200000
+#BOARD_USERDATAIMAGE_PARTITION_SIZE := 12884901888
 
 # Telephony
 BOARD_RIL_CLASS := ../../../$(LOCAL_PATH)/ril/MotorolaQualcommRIL.java
-BOARD_RIL_NO_CELLINFOLIST := true
+
+# WiFi
+TARGET_USES_WCNSS_CTRL := true
+
+WLAN_MODULES:
+	mkdir -p $(KERNEL_MODULES_OUT)/prima
+	mv $(KERNEL_MODULES_OUT)/wlan.ko $(KERNEL_MODULES_OUT)/prima/prima_wlan.ko
+	ln -sf /system/lib/modules/prima/prima_wlan.ko $(TARGET_OUT)/lib/modules/wlan.ko
+
+TARGET_KERNEL_MODULES += WLAN_MODULES
 
 # Audio
+BOARD_USES_LEGACY_ALSA_AUDIO := true
 BOARD_USES_MOTOROLA_EMU_AUDIO := true
 
 # Camera
 TARGET_PROVIDES_CAMERA_HAL := true
-COMMON_GLOBAL_CFLAGS += -DMR0_CAMERA_BLOB -DCAMERA_POWERMODE -DQCOM_BSP_CAMERA_ABI_HACK -DDISABLE_HW_ID_MATCH_CHECK
 
 # Graphics
 BOARD_EGL_CFG := $(LOCAL_PATH)/config/egl.cfg
 
-# assert
-TARGET_OTA_ASSERT_DEVICE := xt925,xt926,xt907,vanquish_u,vanquish,scorpion_mini,mb886,qinara,asanti,asanti_c,xt897,xt897c
+# Media
+TARGET_NO_ADAPTIVE_PLAYBACK := true
+
+# Custom relese tools
+TARGET_RELEASETOOLS_EXTENSIONS := device/motorola/msm8960-common
 
 # Recovery
+TARGET_RECOVERY_DEVICE_DIRS := device/motorola/msm8960-common
+TARGET_RECOVERY_PIXEL_FORMAT := "RGBA_8888"
 TARGET_RECOVERY_FSTAB := $(LOCAL_PATH)/rootdir/etc/fstab.qcom
+TARGET_USERIMAGES_USE_EXT4 := true
+TARGET_RECOVERY_FSTYPE_MOUNT_OPTIONS := ext4=max_batch_time=0,commit=1,data=ordered,barrier=1,errors=panic,nodelalloc|f2fs=errors=recover
 
-#TWRP
+# Telephony
+BOARD_USES_LEGACY_MMAP := true
+
+# TWRP
 TW_EXTERNAL_STORAGE_PATH := "/external_sd"
 TW_EXTERNAL_STORAGE_MOUNT_POINT := "external_sd"
-TARGET_USERIMAGES_USE_EXT4 := true
+
+# QCOM SELinux policy
+include device/qcom/sepolicy/sepolicy.mk
+
+# SELinux
+BOARD_SEPOLICY_DIRS += \
+    device/motorola/msm8960-common/sepolicy
+
+# Device specific additions
+BOARD_SEPOLICY_UNION += \
+    aplogd.te \
+    atvc.te \
+    atvc_core.te \
+    batt_health.te \
+    bootmodem.te \
+    hw_revs.te \
+    mmi-boot-sh.te \
+    mmi-touch-sh.te \
+    platform_app.te \
+    qdumpd.te \
+    whisperd.te

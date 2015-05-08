@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 The CyanogenMod Project
+ * Copyright (C) 2015 The CyanogenMod Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,14 +19,9 @@ package com.android.internal.telephony;
 import static com.android.internal.telephony.RILConstants.*;
 
 import android.content.Context;
-import android.os.AsyncResult;
-import android.os.Message;
 import android.os.Parcel;
-import android.text.TextUtils;
-import android.telephony.Rlog;
-import android.telephony.SignalStrength;
-
-import java.util.ArrayList;
+import android.os.SystemProperties;
+import android.util.Log;
 
 /*
  * Custom Qualcomm RIL for Motorola MSM8960 phones
@@ -34,67 +29,47 @@ import java.util.ArrayList;
  * {@hide}
  */
 public class MotorolaQualcommRIL extends RIL implements CommandsInterface {
+    public MotorolaQualcommRIL(Context context, int preferredNetworkType,
+            int cdmaSubscription, Integer instanceId) {
+        this(context, preferredNetworkType, cdmaSubscription);
+    }
+
     public MotorolaQualcommRIL(Context context, int networkMode, int cdmaSubscription) {
         super(context, networkMode, cdmaSubscription);
-        mQANElements = 5; // fifth element is network generation - 2G/3G/(4G?)
     }
 
     @Override
-    protected Object
-    responseOperatorInfos(Parcel p) {
-        String strings[] = (String [])responseStrings(p);
-        ArrayList<OperatorInfo> ret;
-        ArrayList<String> mccmnc;
+    protected void
+    processUnsolicited (Parcel p) {
+        Object ret;
+        int dataPosition = p.dataPosition(); // save off position within the Parcel
+        int response = p.readInt();
 
-        if (strings.length % mQANElements != 0) {
-            throw new RuntimeException(
-                "RIL_REQUEST_QUERY_AVAILABLE_NETWORKS: invalid response. Got "
-                + strings.length + " strings, expected multiple of " + mQANElements);
+        switch(response) {
+            case RIL_UNSOL_RIL_CONNECTED: ret = responseInts(p); break;
+            default:
+                // Rewind the Parcel
+                p.setDataPosition(dataPosition);
+                // Forward responses that we are not overriding to the super class
+                super.processUnsolicited(p);
+                return;
         }
+        switch(response) {
+            case RIL_UNSOL_RIL_CONNECTED: {
+                if (RILJ_LOGD) unsljLogRet(response, ret);
 
-        ret = new ArrayList<OperatorInfo>();
-        mccmnc = new ArrayList<String>();
-
-        for (int i = 0 ; i < strings.length ; i += mQANElements) {
-            /* add each operator only once - the parcel contains separate entries
-               for 2G and 3G networks, we need just the list of available operators */
-            if (!mccmnc.contains(strings[i+2])) {
-                ret.add (
-                    new OperatorInfo(
-                        strings[i+0],
-                        strings[i+1],
-                        strings[i+2],
-                        strings[i+3]));
-                mccmnc.add(strings[i+2]);
+                // Initial conditions
+                if (SystemProperties.get("ril.socket.reset").equals("1")) {
+                    setRadioPower(false, null);
+                }
+                // Trigger socket reset if RIL connect is called again
+                SystemProperties.set("ril.socket.reset", "1");
+                setPreferredNetworkType(mPreferredNetworkType, null);
+                setCdmaSubscriptionSource(mCdmaSubscription, null);
+                setCellInfoListRate(Integer.MAX_VALUE, null);
+                notifyRegistrantsRilConnectionChanged(((int[])ret)[0]);
+                break;
             }
         }
-
-        return ret;
-    }
-
-    @Override
-    protected Object
-    responseSignalStrength(Parcel p) {
-
-        int parcelSize = p.dataSize();
-        int gsmSignalStrength = p.readInt();
-        int gsmBitErrorRate = p.readInt();
-        int cdmaDbm = p.readInt();
-        int cdmaEcio = p.readInt();
-        int evdoDbm = p.readInt();
-        int evdoEcio = p.readInt();
-        int evdoSnr = p.readInt();
-        int lteSignalStrength = p.readInt();
-        int lteRsrp = p.readInt();
-        int lteRsrq = p.readInt();
-        int lteRssnr = p.readInt();
-        int lteCqi = p.readInt();
-        boolean isGsm = (mPhoneType == RILConstants.GSM_PHONE);
-
-        SignalStrength signalStrength = new SignalStrength(gsmSignalStrength,
-                gsmBitErrorRate, cdmaDbm, cdmaEcio, evdoDbm, evdoEcio, evdoSnr,
-                lteSignalStrength, lteRsrp, lteRsrq, lteRssnr, lteCqi, isGsm);
-
-        return signalStrength;
     }
 }

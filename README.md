@@ -1,4 +1,6 @@
-Common device configuration for Motorola MSM8960 based devices
+Common device configuration for Motorola msm8960 based devices
 ==============================
 
-Copyright 2013 - The CyanogenMod Project
+This device tree is for devices that have a 4.4 bootloader.
+
+Copyright 2015 - The CyanogenMod Project
