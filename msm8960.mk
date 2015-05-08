@@ -125,7 +125,14 @@ PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/moto_com.sh:system/bin/moto_com.sh
 
 # Media config
+ifeq ($(TARGET_USES_MOTOROLA_MSM8960_COMMON_MEDIA_PROFILES),true)
 PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH)/config/media_profiles.xml:system/etc/media_profiles.xml
+endif
+
+# Media codecs
+PRODUCT_COPY_FILES += \
+<<<<<<< HEAD
     $(LOCAL_PATH)/config/media_codecs_aosp.xml:system/etc/media_codecs.xml
 
 # QCOM Display
@@ -143,6 +150,7 @@ PRODUCT_PROPERTY_OVERRIDES += \
     mmp.enable.3g2=true \
     media.aac_51_output_enabled=true \
     ro.mot.vr_source_dsp=1
+    $(LOCAL_PATH)/config/media_codecs.xml:system/etc/media_codecs.xml
 
 # Misc
 PRODUCT_PROPERTY_OVERRIDES += \
